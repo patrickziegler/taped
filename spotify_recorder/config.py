@@ -17,7 +17,7 @@ import argparse
 import os
 import sys
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 
 
 class ConfigManager:
