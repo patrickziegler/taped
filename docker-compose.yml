@@ -1,0 +1,16 @@
+services:
+  dev:
+    image: spotify-recorder-dev
+    container_name: spotify-recorder-dev
+    stdin_open: true
+    tty: true
+    environment:
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+      - XDG_RUNTIME_DIR=/tmp/runtime
+    volumes:
+      - ~/.gemini:/root/.gemini
+      - .:/workspace
+      - /run/user/${UID}:/tmp/runtime
+    working_dir: /workspace
+    command: bash
