@@ -50,9 +50,7 @@ async fn test_recording_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .await?;
     
-    let mut control = ServiceControl::new();
-    // Start with recording DISABLED
-    control.recording_enabled = false;
+    let control = ServiceControl::new(false);
 
     connection
         .object_server()
@@ -61,8 +59,12 @@ async fn test_recording_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
 
     let (exporter_tx, exporter_rx) = mpsc::channel(10);
 
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let music_dir = PathBuf::from(home).join("Music").join("Spotify");
+    let pattern = "{albumArtist} - {album}/{trackNumber} - {title}".to_string();
+
     // Start exporter
-    tokio::spawn(exporter_task(exporter_rx));
+    tokio::spawn(exporter_task(exporter_rx, music_dir.clone(), pattern));
 
     // Start monitor
     tokio::spawn(monitor_spotify(

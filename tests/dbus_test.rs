@@ -38,7 +38,7 @@ async fn test_service_control() -> Result<(), Box<dyn std::error::Error>> {
         .name(service_bus_name)?
         .build()
         .await?;
-    let control = ServiceControl::new();
+    let control = ServiceControl::new(false);
 
     // Register our control interface
     connection

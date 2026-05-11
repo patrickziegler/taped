@@ -49,10 +49,11 @@ impl TryFrom<OwnedValue> for ConnectionStatus {
     }
 }
 
-pub async fn exporter_task(mut rx: mpsc::Receiver<RecordingSession>) {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let music_dir = PathBuf::from(home).join("Music").join("Spotify");
-
+pub async fn exporter_task(
+    mut rx: mpsc::Receiver<RecordingSession>,
+    music_dir: PathBuf,
+    pattern: String,
+) {
     while let Some(mut session) = rx.recv().await {
         let track = session.track;
         let temp_path = session.temp_path;
@@ -82,19 +83,15 @@ pub async fn exporter_task(mut rx: mpsc::Receiver<RecordingSession>) {
             continue;
         }
 
-        let artist = track.artist.as_deref().unwrap_or("Unknown Artist");
-        let album = track.album.as_deref().unwrap_or("Unknown Album");
-        let title = track.title.as_deref().unwrap_or("Unknown Title");
-        let track_number = track.track_number.unwrap_or(0);
-
-        let dest_dir = music_dir.join(artist).join(album);
-        if let Err(e) = tokio::fs::create_dir_all(&dest_dir).await {
-            error!("Failed to create directory {:?}: {}", dest_dir, e);
-            continue;
+        let relative_path = format_path(&pattern, &track);
+        let dest_path = music_dir.join(relative_path).with_extension("wav");
+        
+        if let Some(parent) = dest_path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                error!("Failed to create directory {:?}: {}", parent, e);
+                continue;
+            }
         }
-
-        let file_name = format!("{:02} - {}.wav", track_number, title);
-        let dest_path = dest_dir.join(file_name);
 
         // Apply ID3 tags
         let track_for_tags = track.clone();
@@ -111,6 +108,16 @@ pub async fn exporter_task(mut rx: mpsc::Receiver<RecordingSession>) {
             info!("Track exported to {:?}", dest_path);
         }
     }
+}
+
+fn format_path(pattern: &str, track: &TrackInfo) -> String {
+    pattern
+        .replace("{title}", track.title.as_deref().unwrap_or("Unknown Title"))
+        .replace("{artist}", track.artist.as_deref().unwrap_or("Unknown Artist"))
+        .replace("{album}", track.album.as_deref().unwrap_or("Unknown Album"))
+        .replace("{albumArtist}", track.album_artist.as_deref().unwrap_or(track.artist.as_deref().unwrap_or("Unknown Artist")))
+        .replace("{trackNumber}", &format!("{:02}", track.track_number.unwrap_or(0)))
+        .replace("{discNumber}", &track.disc_number.unwrap_or(1).to_string())
 }
 
 async fn move_file(source: &std::path::Path, dest: &std::path::Path) -> std::io::Result<()> {
@@ -169,12 +176,12 @@ pub struct ServiceControl {
 }
 
 impl ServiceControl {
-    pub fn new() -> Self {
+    pub fn new(recording_enabled: bool) -> Self {
         Self {
-            recording_enabled: false,
+            recording_enabled,
             connection_status: ConnectionStatus::Disconnected,
             current_track: None,
-            waiting_for_next_track: false,
+            waiting_for_next_track: recording_enabled,
         }
     }
 }
@@ -229,9 +236,11 @@ impl ServiceControl {
 pub async fn run_service(
     connection: zbus::Connection,
     spotify_bus_name: &str,
+    music_dir: PathBuf,
+    pattern: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel(10);
-    tokio::spawn(exporter_task(rx));
+    tokio::spawn(exporter_task(rx, music_dir, pattern));
 
     let dbus_proxy = DBusProxy::new(&connection).await?;
     let mut name_owner_changed = dbus_proxy.receive_name_owner_changed().await?;
