@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     jq \
+    ffmpeg \
     libpipewire-0.3-dev \
     pipewire-bin \
     && rm -rf /var/lib/apt/lists/*
