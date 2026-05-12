@@ -1,17 +1,14 @@
 use clap::Parser;
-use spotify_recorder::{ServiceControl, run_service};
 use std::path::PathBuf;
 use zbus::connection;
+
+pub use spotify_recorder::watchdog::run_service;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Destination directory for recorded tracks
     destination: Option<PathBuf>,
-
-    /// Start in background mode (recording disabled by default)
-    #[arg(long)]
-    background: bool,
 
     /// Pattern for constructing filenames
     #[arg(long, default_value = "{albumArtist} - {album}/{trackNumber} - {title}")]
@@ -29,12 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PathBuf::from(home).join("Music").join("Spotify")
     });
 
-    let recording_enabled = !args.background;
-
-    let control = ServiceControl::new(recording_enabled);
     let connection = connection::Builder::session()?
-        .name("org.spotify_recorder")?
-        .serve_at("/org/spotify_recorder/Control", control)?
         .build()
         .await?;
 
