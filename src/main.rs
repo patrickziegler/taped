@@ -30,11 +30,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()
         .await?;
 
+    let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
+
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        tracing::info!("Shutdown signal received (CTRL-C)");
+        let _ = shutdown_tx.send(());
+    });
+
     run_service(
         connection,
         "org.mpris.MediaPlayer2.spotify",
         music_dir,
         args.pattern,
+        shutdown_rx,
     )
     .await
 }

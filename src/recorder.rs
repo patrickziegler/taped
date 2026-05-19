@@ -32,7 +32,7 @@ impl Recording for RealRecording {
     async fn stop(mut self: Box<Self>) -> anyhow::Result<FinishedRecording> {
         info!("Stopping recording for {}", self.track.title.as_deref().unwrap_or("Unknown"));
         
-        // Use SIGINT to allow ffmpeg to flush the file
+        // Use SIGINT on the process group to allow ffmpeg to flush the file
         unsafe {
             if let Some(pid) = self.child.id() {
                 libc::kill(-(pid as i32), libc::SIGINT);
@@ -41,6 +41,7 @@ impl Recording for RealRecording {
             }
         }
 
+        // Wait for the process to exit
         match self.child.wait().await {
             Ok(status) => {
                 if !status.success() {
@@ -58,9 +59,21 @@ impl Recording for RealRecording {
 
     async fn discard(mut self: Box<Self>) -> anyhow::Result<()> {
         info!("Discarding recording for {}", self.track.title.as_deref().unwrap_or("Unknown"));
-        let _ = self.child.kill().await;
+        
+        unsafe {
+            if let Some(pid) = self.child.id() {
+                // Kill the whole process group immediately
+                libc::kill(-(pid as i32), libc::SIGKILL);
+            }
+        }
+
+        // Wait for the process to exit to avoid zombies
+        let _ = self.child.wait().await;
+
         if self.temp_path.exists() {
-            tokio::fs::remove_file(&self.temp_path).await?;
+            if let Err(e) = tokio::fs::remove_file(&self.temp_path).await {
+                error!("Failed to remove temporary file {:?}: {}", self.temp_path, e);
+            }
         }
         Ok(())
     }
