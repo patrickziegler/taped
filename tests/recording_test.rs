@@ -1,8 +1,8 @@
 mod mock;
 
 use mock::{run_mock, MockCommand};
-use spotify_recorder::watchdog::monitor_spotify;
-use spotify_recorder::recorder::exporter_task;
+use taped::watchdog::monitor_spotify;
+use taped::recorder::exporter_task;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use zbus::{connection, zvariant::Value};
@@ -75,11 +75,13 @@ async fn test_recording_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
+    let (_shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
     // Start monitor
     tokio::spawn(monitor_spotify(
         connection.clone(),
         spotify_bus_name.to_string(),
         exporter_tx,
+        shutdown_rx,
     ));
 
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;

@@ -1,7 +1,7 @@
 mod mock;
 
 use mock::run_mock;
-use spotify_recorder::watchdog::monitor_spotify;
+use taped::watchdog::monitor_spotify;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use zbus::{connection, zvariant::Value};
@@ -24,11 +24,13 @@ async fn test_monitor_metadata_processing() -> Result<(), Box<dyn std::error::Er
 
     let (session_tx, _session_rx) = mpsc::channel(10);
 
+    let (_shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
     // Start monitor manually for test
     tokio::spawn(monitor_spotify(
         connection.clone(),
         spotify_bus_name.to_string(),
         session_tx,
+        shutdown_rx,
     ));
 
     // Send metadata

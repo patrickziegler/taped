@@ -162,6 +162,7 @@ pub async fn monitor_spotify(
     connection: zbus::Connection,
     bus_name: String,
     tx: mpsc::Sender<FinishedRecording>,
+    mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) {
     let player_proxy = match PlayerProxy::builder(&connection)
         .destination(bus_name)
@@ -204,14 +205,20 @@ pub async fn monitor_spotify(
                 }
             }
             Some(_) = futures_util::StreamExt::next(&mut playback_stream) => {
-                if let Ok(status) = player_proxy.playback_status().await {
-                    let current_track = if let Ok(metadata) = player_proxy.metadata().await {
+                if let Ok(_status) = player_proxy.playback_status().await {
+                    let _current_track = if let Ok(metadata) = player_proxy.metadata().await {
                         Some(parse_track_info(&metadata))
                     } else {
                         None
                     };
-                    watchdog.handle_playback_status(&status, current_track).await;
+                    watchdog.handle_playback_status(&_status, _current_track).await;
                 }
+            }
+            _ = shutdown_rx.recv() => {
+                if let Some(recording) = watchdog.current_recording.take() {
+                    let _ = recording.discard().await;
+                }
+                return;
             }
         }
     }
@@ -222,7 +229,9 @@ pub async fn run_service(
     spotify_bus_name: &str,
     music_dir: PathBuf,
     pattern: String,
+    shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let mut main_shutdown_rx = shutdown_rx;
     let (tx, rx) = mpsc::channel(100);
     tokio::spawn(crate::recorder::exporter_task(rx, music_dir, pattern));
 
@@ -239,27 +248,40 @@ pub async fn run_service(
             connection.clone(),
             spotify_bus_name.to_string(),
             tx.clone(),
+            main_shutdown_rx.resubscribe(),
         )));
     }
 
-    while let Some(signal) = futures_util::StreamExt::next(&mut name_owner_changed).await {
-        let args = signal.args()?;
-        if args.name() == spotify_bus_name {
-            if let Some(_new_owner) = args.new_owner().as_ref() {
-                info!("Spotify appeared");
-                if let Some(handle) = monitor_handle.take() {
-                    handle.abort();
+    loop {
+        tokio::select! {
+            Some(signal) = futures_util::StreamExt::next(&mut name_owner_changed) => {
+                let args = signal.args()?;
+                if args.name() == spotify_bus_name {
+                    if let Some(_new_owner) = args.new_owner().as_ref() {
+                        info!("Spotify appeared");
+                        if let Some(handle) = monitor_handle.take() {
+                            handle.abort();
+                        }
+                        monitor_handle = Some(tokio::spawn(monitor_spotify(
+                            connection.clone(),
+                            spotify_bus_name.to_string(),
+                            tx.clone(),
+                            main_shutdown_rx.resubscribe(),
+                        )));
+                    } else {
+                        warn!("Spotify disappeared");
+                        if let Some(handle) = monitor_handle.take() {
+                            handle.abort();
+                        }
+                    }
                 }
-                monitor_handle = Some(tokio::spawn(monitor_spotify(
-                    connection.clone(),
-                    spotify_bus_name.to_string(),
-                    tx.clone(),
-                )));
-            } else {
-                warn!("Spotify disappeared");
+            }
+            _ = main_shutdown_rx.recv() => {
+                info!("Service received shutdown signal");
                 if let Some(handle) = monitor_handle.take() {
-                    handle.abort();
+                    let _ = handle.await;
                 }
+                break;
             }
         }
     }
