@@ -95,9 +95,14 @@ impl Watchdog {
         } else {
             // Stopped or Paused
             if let Some(recording) = self.current_recording.take() {
-                self.previous_recording = Some(recording);
-                self.finalize_previous().await;
+                info!("Playback {} - discarding current recording", status);
+                tokio::spawn(async move {
+                    if let Err(e) = recording.discard().await {
+                        error!("Failed to discard recording: {}", e);
+                    }
+                });
             }
+            self.waiting_for_next_track = true;
         }
     }
 
