@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::process::Stdio;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
@@ -140,7 +141,9 @@ impl Watchdog {
             pw_cat_target, temp_path
         );
 
-        cmd.arg("-c").arg(shell_cmd);
+        cmd.arg("-c").arg(shell_cmd)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
         // Important: start in a new process group so we can kill the whole group (pw-cat + ffmpeg)
         #[cfg(unix)]
         unsafe {
