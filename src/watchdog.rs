@@ -73,6 +73,15 @@ impl Watchdog {
             self.finalize_previous().await;
         }
 
+        if track.is_ad() {
+            info!(
+                "Ad/Invalid track detected (ID: {}, Title: {}). Skipping recording.",
+                track.track_id,
+                track.title.as_deref().unwrap_or("Unknown")
+            );
+            return;
+        }
+
         if self.playback_status == "Playing" {
             self.start_new_recording(track).await;
         } else {
@@ -90,7 +99,11 @@ impl Watchdog {
         if status == "Playing" {
             if self.current_recording.is_none() && !self.waiting_for_next_track {
                 if let Some(track) = current_track {
-                    self.start_new_recording(track).await;
+                    if track.is_ad() {
+                        info!("Spotify is playing an ad, skipping recording");
+                    } else {
+                        self.start_new_recording(track).await;
+                    }
                 }
             }
         } else {

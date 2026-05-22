@@ -71,6 +71,8 @@ org.mpris.MediaPlayer2.Player       interface -         -                       
 .Seeked                             signal    x         -                                        -
 ```
 
+The following capture shows the typical metadata information as propagated by Spotify via DBus
+
 ```sh
 busctl --user monitor --match="sender='org.mpris.MediaPlayer2.spotify',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'"
 ...
@@ -161,6 +163,350 @@ busctl --user monitor --match="sender='org.mpris.MediaPlayer2.spotify',interface
           ARRAY "s" {
           };
   };
+```
+
+The following capture shows a session with advertisements played in between
+
+```sh
+patrick@shuttle:~/workspace/projects/taped> dbus-monitor --session "type='signal',sender='org.mpris.MediaPlayer2.spotify',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.mpris.MediaPlayer2.Player'"
+signal time=1779386357.535682 sender=org.freedesktop.DBus -> destination=:1.127 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.127"
+signal time=1779386357.535705 sender=org.freedesktop.DBus -> destination=:1.127 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.127"
+signal time=1779386873.600426 sender=:1.119 -> destination=(null destination) serial=130 path=/org/mpris/MediaPlayer2; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
+   string "org.mpris.MediaPlayer2.Player"
+   array [
+      dict entry(
+         string "Metadata"
+         variant             array [
+               dict entry(
+                  string "mpris:trackid"
+                  variant                      string "/com/spotify/track/7Lf7oSEVdzZqTA0kEDSlS5"
+               )
+               dict entry(
+                  string "mpris:length"
+                  variant                      uint64 288333000
+               )
+               dict entry(
+                  string "mpris:artUrl"
+                  variant                      string "https://i.scdn.co/image/ab67616d0000b273346a5742374ab4cf9ed32dee"
+               )
+               dict entry(
+                  string "xesam:album"
+                  variant                      string "Justified"
+               )
+               dict entry(
+                  string "xesam:albumArtist"
+                  variant                      array [
+                        string "Justin Timberlake"
+                     ]
+               )
+               dict entry(
+                  string "xesam:artist"
+                  variant                      array [
+                        string "Justin Timberlake"
+                     ]
+               )
+               dict entry(
+                  string "xesam:autoRating"
+                  variant                      double 0.81
+               )
+               dict entry(
+                  string "xesam:discNumber"
+                  variant                      int32 1
+               )
+               dict entry(
+                  string "xesam:title"
+                  variant                      string "Cry Me a River"
+               )
+               dict entry(
+                  string "xesam:trackNumber"
+                  variant                      int32 5
+               )
+               dict entry(
+                  string "xesam:url"
+                  variant                      string "https://open.spotify.com/track/7Lf7oSEVdzZqTA0kEDSlS5"
+               )
+            ]
+      )
+   ]
+   array [
+   ]
+signal time=1779386891.754381 sender=:1.119 -> destination=(null destination) serial=139 path=/org/mpris/MediaPlayer2; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
+   string "org.mpris.MediaPlayer2.Player"
+   array [
+      dict entry(
+         string "CanGoNext"
+         variant             boolean false
+      )
+      dict entry(
+         string "CanGoPrevious"
+         variant             boolean false
+      )
+      dict entry(
+         string "CanSeek"
+         variant             boolean false
+      )
+      dict entry(
+         string "Metadata"
+         variant             array [
+               dict entry(
+                  string "mpris:trackid"
+                  variant                      string "/com/spotify/ad/2b5a5d0c7d4d4b78a84df74a5c94ba8e"
+               )
+               dict entry(
+                  string "mpris:length"
+                  variant                      uint64 30000000
+               )
+               dict entry(
+                  string "mpris:artUrl"
+                  variant                      string ""
+               )
+               dict entry(
+                  string "xesam:album"
+                  variant                      string ""
+               )
+               dict entry(
+                  string "xesam:albumArtist"
+                  variant                      array [
+                        string ""
+                     ]
+               )
+               dict entry(
+                  string "xesam:artist"
+                  variant                      array [
+                        string ""
+                     ]
+               )
+               dict entry(
+                  string "xesam:autoRating"
+                  variant                      double 0
+               )
+               dict entry(
+                  string "xesam:discNumber"
+                  variant                      int32 0
+               )
+               dict entry(
+                  string "xesam:title"
+                  variant                      string "Hör Musik ohne Werbepausen."
+               )
+               dict entry(
+                  string "xesam:trackNumber"
+                  variant                      int32 0
+               )
+               dict entry(
+                  string "xesam:url"
+                  variant                      string "https://open.spotify.com/ad/2b5a5d0c7d4d4b78a84df74a5c94ba8e"
+               )
+            ]
+      )
+   ]
+   array [
+   ]
+signal time=1779386920.918095 sender=:1.119 -> destination=(null destination) serial=145 path=/org/mpris/MediaPlayer2; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
+   string "org.mpris.MediaPlayer2.Player"
+   array [
+      dict entry(
+         string "Volume"
+         variant             double 1.00002
+      )
+   ]
+   array [
+   ]
+signal time=1779386922.685968 sender=:1.119 -> destination=(null destination) serial=146 path=/org/mpris/MediaPlayer2; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
+   string "org.mpris.MediaPlayer2.Player"
+   array [
+      dict entry(
+         string "Volume"
+         variant             double 1
+      )
+      dict entry(
+         string "Metadata"
+         variant             array [
+               dict entry(
+                  string "mpris:trackid"
+                  variant                      string "/com/spotify/ad/c5f532f3598242249e2d4cec0d540851"
+               )
+               dict entry(
+                  string "mpris:length"
+                  variant                      uint64 29000000
+               )
+               dict entry(
+                  string "mpris:artUrl"
+                  variant                      string ""
+               )
+               dict entry(
+                  string "xesam:album"
+                  variant                      string ""
+               )
+               dict entry(
+                  string "xesam:albumArtist"
+                  variant                      array [
+                        string ""
+                     ]
+               )
+               dict entry(
+                  string "xesam:artist"
+                  variant                      array [
+                        string ""
+                     ]
+               )
+               dict entry(
+                  string "xesam:autoRating"
+                  variant                      double 0
+               )
+               dict entry(
+                  string "xesam:discNumber"
+                  variant                      int32 0
+               )
+               dict entry(
+                  string "xesam:title"
+                  variant                      string "Hör Musik ohne Werbepausen."
+               )
+               dict entry(
+                  string "xesam:trackNumber"
+                  variant                      int32 0
+               )
+               dict entry(
+                  string "xesam:url"
+                  variant                      string "https://open.spotify.com/ad/c5f532f3598242249e2d4cec0d540851"
+               )
+            ]
+      )
+   ]
+   array [
+   ]
+signal time=1779386953.148763 sender=:1.119 -> destination=(null destination) serial=152 path=/org/mpris/MediaPlayer2; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
+   string "org.mpris.MediaPlayer2.Player"
+   array [
+      dict entry(
+         string "Metadata"
+         variant             array [
+               dict entry(
+                  string "mpris:trackid"
+                  variant                      string "/com/spotify/ad/0edcaa015d7e4326afafb4acb7e0f35a"
+               )
+               dict entry(
+                  string "mpris:length"
+                  variant                      uint64 0
+               )
+               dict entry(
+                  string "mpris:artUrl"
+                  variant                      string "https://i.scdn.co/image/ab67616600001e0123d2d1d9f44b73fe14e47068"
+               )
+               dict entry(
+                  string "xesam:album"
+                  variant                      string ""
+               )
+               dict entry(
+                  string "xesam:albumArtist"
+                  variant                      array [
+                        string ""
+                     ]
+               )
+               dict entry(
+                  string "xesam:artist"
+                  variant                      array [
+                        string ""
+                     ]
+               )
+               dict entry(
+                  string "xesam:autoRating"
+                  variant                      double 0
+               )
+               dict entry(
+                  string "xesam:discNumber"
+                  variant                      int32 0
+               )
+               dict entry(
+                  string "xesam:title"
+                  variant                      string "—"
+               )
+               dict entry(
+                  string "xesam:trackNumber"
+                  variant                      int32 0
+               )
+               dict entry(
+                  string "xesam:url"
+                  variant                      string "https://open.spotify.com/ad/0edcaa015d7e4326afafb4acb7e0f35a"
+               )
+            ]
+      )
+   ]
+   array [
+   ]
+signal time=1779386960.281891 sender=:1.119 -> destination=(null destination) serial=159 path=/org/mpris/MediaPlayer2; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
+   string "org.mpris.MediaPlayer2.Player"
+   array [
+      dict entry(
+         string "CanGoNext"
+         variant             boolean true
+      )
+      dict entry(
+         string "CanGoPrevious"
+         variant             boolean true
+      )
+      dict entry(
+         string "CanSeek"
+         variant             boolean true
+      )
+      dict entry(
+         string "Metadata"
+         variant             array [
+               dict entry(
+                  string "mpris:trackid"
+                  variant                      string "/com/spotify/track/7g2BBjUQWJDdRohU8mOOZk"
+               )
+               dict entry(
+                  string "mpris:length"
+                  variant                      uint64 285570000
+               )
+               dict entry(
+                  string "mpris:artUrl"
+                  variant                      string "https://i.scdn.co/image/ab67616d0000b2731184191625b12259967b7116"
+               )
+               dict entry(
+                  string "xesam:album"
+                  variant                      string "Hypnotica"
+               )
+               dict entry(
+                  string "xesam:albumArtist"
+                  variant                      array [
+                        string "Benny Benassi"
+                     ]
+               )
+               dict entry(
+                  string "xesam:artist"
+                  variant                      array [
+                        string "Benny Benassi"
+                     ]
+               )
+               dict entry(
+                  string "xesam:autoRating"
+                  variant                      double 0.02
+               )
+               dict entry(
+                  string "xesam:discNumber"
+                  variant                      int32 1
+               )
+               dict entry(
+                  string "xesam:title"
+                  variant                      string "Satisfaction - Isak Original Extended"
+               )
+               dict entry(
+                  string "xesam:trackNumber"
+                  variant                      int32 1
+               )
+               dict entry(
+                  string "xesam:url"
+                  variant                      string "https://open.spotify.com/track/7g2BBjUQWJDdRohU8mOOZk"
+               )
+            ]
+      )
+   ]
+   array [
+   ]
+^C
 ```
 
 ## PipeWire related

@@ -1,5 +1,5 @@
 todo:
-- what if advertisements are played? service should handle invalid dbus metadata
+- fix warning about recording subprocess exits with 255
 - audio recording quality needs to be configurable
 - virtual sink should be used for recording, spotify audio redirected to it, loopback be executed in the background if user wants to hear the stream while recording
 - audio files shouldn't have that small crack at the beginning of each recording
@@ -8,5 +8,6 @@ todo:
 - extend to other apps like tidal or even youtube??
 
 done:
-- songs should not be exported when playback in spotify stops, we need to discard those songs
-- ffmpeg output should not be visible in terminal
+- ~~what if advertisements are played? service should handle invalid dbus metadata~~
+- ~~songs should not be exported when playback in spotify stops, we need to discard those songs~~
+- ~~ffmpeg output should not be visible in terminal~~

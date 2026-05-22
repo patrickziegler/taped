@@ -16,6 +16,16 @@ pub struct TrackInfo {
     pub disc_number: Option<i32>,
 }
 
+impl TrackInfo {
+    pub fn is_ad(&self) -> bool {
+        self.track_id.contains("/ad/")
+            || self.track_id.starts_with("spotify:ad:")
+            || self.track_id.is_empty()
+            || self.artist.as_deref() == Some("")
+            || self.album.as_deref() == Some("")
+    }
+}
+
 pub fn parse_track_info(metadata: &HashMap<String, OwnedValue>) -> TrackInfo {
     let mut track = TrackInfo::default();
 
