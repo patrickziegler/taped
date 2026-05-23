@@ -5,6 +5,9 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use crate::track::{TrackInfo, apply_tags, format_path};
 
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
+
 pub struct FinishedRecording {
     pub temp_path: PathBuf,
     pub track: TrackInfo,
@@ -45,7 +48,16 @@ impl Recording for RealRecording {
         match self.child.wait().await {
             Ok(status) => {
                 if !status.success() {
-                    warn!("Recording process exited with status: {}", status);
+                    #[cfg(unix)]
+                    let is_expected = status.code() == Some(255)
+                        || status.code() == Some(130)
+                        || status.signal() == Some(libc::SIGINT);
+                    #[cfg(not(unix))]
+                    let is_expected = status.code() == Some(255) || status.code() == Some(130);
+
+                    if !is_expected {
+                        warn!("Recording process exited with status: {}", status);
+                    }
                 }
             }
             Err(e) => error!("Failed to wait for recording process: {}", e),
