@@ -11,8 +11,14 @@ struct Args {
     destination: Option<PathBuf>,
 
     /// Pattern for constructing filenames
-    #[arg(long, default_value = "{albumArtist} - {album}/{trackNumber} - {title}")]
+    #[arg(
+        long,
+        default_value = "{albumArtist} - {album}/{trackNumber} - {title}"
+    )]
     pattern: String,
+
+    #[command(flatten)]
+    audio: taped::config::AudioConfig,
 }
 
 #[tokio::main]
@@ -26,9 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PathBuf::from(home).join("Music").join("Spotify")
     });
 
-    let connection = connection::Builder::session()?
-        .build()
-        .await?;
+    let connection = connection::Builder::session()?.build().await?;
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
 
@@ -43,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "org.mpris.MediaPlayer2.spotify",
         music_dir,
         args.pattern,
+        args.audio,
         shutdown_rx,
     )
     .await

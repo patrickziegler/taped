@@ -60,7 +60,11 @@ pub async fn run_mock(
             }
             MockCommand::PlaybackStatus(new_status) => {
                 interface.get_mut().await.playback_status = new_status;
-                interface.get_mut().await.playback_status_changed(emitter).await?;
+                interface
+                    .get_mut()
+                    .await
+                    .playback_status_changed(emitter)
+                    .await?;
             }
         }
     }

@@ -1,8 +1,8 @@
+use id3::TagLike;
 use std::collections::HashMap;
 use std::path::Path;
-use zbus::zvariant::{OwnedValue, Array};
-use id3::TagLike;
-use tracing::{info, error};
+use tracing::{error, info};
+use zbus::zvariant::{Array, OwnedValue};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TrackInfo {
@@ -35,27 +35,45 @@ pub fn parse_track_info(metadata: &HashMap<String, OwnedValue>) -> TrackInfo {
         }
     }
 
-    track.title = metadata.get("xesam:title").and_then(|v| v.downcast_ref::<&str>().ok().map(|s| s.to_string()));
-    track.album = metadata.get("xesam:album").and_then(|v| v.downcast_ref::<&str>().ok().map(|s| s.to_string()));
-    track.art_url = metadata.get("mpris:artUrl").and_then(|v| v.downcast_ref::<&str>().ok().map(|s| s.to_string()));
-    track.track_number = metadata.get("xesam:trackNumber").and_then(|v| v.downcast_ref::<i32>().ok());
-    track.disc_number = metadata.get("xesam:discNumber").and_then(|v| v.downcast_ref::<i32>().ok());
+    track.title = metadata
+        .get("xesam:title")
+        .and_then(|v| v.downcast_ref::<&str>().ok().map(|s| s.to_string()));
+    track.album = metadata
+        .get("xesam:album")
+        .and_then(|v| v.downcast_ref::<&str>().ok().map(|s| s.to_string()));
+    track.art_url = metadata
+        .get("mpris:artUrl")
+        .and_then(|v| v.downcast_ref::<&str>().ok().map(|s| s.to_string()));
+    track.track_number = metadata
+        .get("xesam:trackNumber")
+        .and_then(|v| v.downcast_ref::<i32>().ok());
+    track.disc_number = metadata
+        .get("xesam:discNumber")
+        .and_then(|v| v.downcast_ref::<i32>().ok());
 
     track.artist = metadata.get("xesam:artist").and_then(|v| {
         v.downcast_ref::<Array>().ok().map(|array| {
-            array.iter().filter_map(|val| {
-                let s: Result<&str, _> = val.try_into();
-                s.ok().map(|s| s.to_string())
-            }).collect::<Vec<String>>().join(", ")
+            array
+                .iter()
+                .filter_map(|val| {
+                    let s: Result<&str, _> = val.try_into();
+                    s.ok().map(|s| s.to_string())
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
         })
     });
 
     track.album_artist = metadata.get("xesam:albumArtist").and_then(|v| {
         v.downcast_ref::<Array>().ok().map(|array| {
-            array.iter().filter_map(|val| {
-                let s: Result<&str, _> = val.try_into();
-                s.ok().map(|s| s.to_string())
-            }).collect::<Vec<String>>().join(", ")
+            array
+                .iter()
+                .filter_map(|val| {
+                    let s: Result<&str, _> = val.try_into();
+                    s.ok().map(|s| s.to_string())
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
         })
     });
 
@@ -63,6 +81,14 @@ pub fn parse_track_info(metadata: &HashMap<String, OwnedValue>) -> TrackInfo {
 }
 
 pub fn apply_tags(path: &Path, track: &TrackInfo) -> anyhow::Result<()> {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if ext != "mp3" && ext != "wav" {
+        info!(
+            "Skipping ID3 metadata tagging for .{} files (unsupported format)",
+            ext
+        );
+        return Ok(());
+    }
     let mut tag = id3::Tag::new();
     tag.set_title(track.title.as_deref().unwrap_or("Unknown Title"));
     tag.set_artist(track.artist.as_deref().unwrap_or("Unknown Artist"));
@@ -100,9 +126,21 @@ pub fn apply_tags(path: &Path, track: &TrackInfo) -> anyhow::Result<()> {
 pub fn format_path(pattern: &str, track: &TrackInfo) -> String {
     pattern
         .replace("{title}", track.title.as_deref().unwrap_or("Unknown Title"))
-        .replace("{artist}", track.artist.as_deref().unwrap_or("Unknown Artist"))
+        .replace(
+            "{artist}",
+            track.artist.as_deref().unwrap_or("Unknown Artist"),
+        )
         .replace("{album}", track.album.as_deref().unwrap_or("Unknown Album"))
-        .replace("{albumArtist}", track.album_artist.as_deref().unwrap_or(track.artist.as_deref().unwrap_or("Unknown Artist")))
-        .replace("{trackNumber}", &format!("{:02}", track.track_number.unwrap_or(0)))
+        .replace(
+            "{albumArtist}",
+            track
+                .album_artist
+                .as_deref()
+                .unwrap_or(track.artist.as_deref().unwrap_or("Unknown Artist")),
+        )
+        .replace(
+            "{trackNumber}",
+            &format!("{:02}", track.track_number.unwrap_or(0)),
+        )
         .replace("{discNumber}", &track.disc_number.unwrap_or(1).to_string())
 }

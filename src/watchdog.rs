@@ -1,11 +1,11 @@
+use crate::recorder::{FinishedRecording, RealRecording, Recording, get_default_sink_monitor};
+use crate::track::{TrackInfo, parse_track_info};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use zbus::proxy;
-use crate::track::{TrackInfo, parse_track_info};
-use crate::recorder::{Recording, RealRecording, FinishedRecording, get_default_sink_monitor};
 
 #[proxy(
     interface = "org.mpris.MediaPlayer2.Player",
@@ -14,7 +14,9 @@ use crate::recorder::{Recording, RealRecording, FinishedRecording, get_default_s
 )]
 pub trait Player {
     #[zbus(property)]
-    fn metadata(&self) -> zbus::Result<std::collections::HashMap<String, zbus::zvariant::OwnedValue>>;
+    fn metadata(
+        &self,
+    ) -> zbus::Result<std::collections::HashMap<String, zbus::zvariant::OwnedValue>>;
 
     #[zbus(property)]
     fn playback_status(&self) -> zbus::Result<String>;
@@ -27,10 +29,14 @@ pub struct Watchdog {
     pub waiting_for_next_track: bool,
     pub last_track_id: Option<String>,
     pub playback_status: String,
+    pub audio_config: crate::config::AudioConfig,
 }
 
 impl Watchdog {
-    pub fn new(exporter_tx: mpsc::Sender<FinishedRecording>) -> Self {
+    pub fn new(
+        exporter_tx: mpsc::Sender<FinishedRecording>,
+        audio_config: crate::config::AudioConfig,
+    ) -> Self {
         Self {
             current_recording: None,
             previous_recording: None,
@@ -38,6 +44,7 @@ impl Watchdog {
             waiting_for_next_track: true,
             last_track_id: None,
             playback_status: "Unknown".to_string(),
+            audio_config,
         }
     }
 
@@ -57,7 +64,10 @@ impl Watchdog {
 
         if self.waiting_for_next_track {
             if old_track_id.is_none() {
-                info!("Initial track detected: {}. Waiting for next track transition to start capture.", track.title.as_deref().unwrap_or("Unknown"));
+                info!(
+                    "Initial track detected: {}. Waiting for next track transition to start capture.",
+                    track.title.as_deref().unwrap_or("Unknown")
+                );
                 return;
             } else {
                 info!("First track transition detected. Starting capture from now on.");
@@ -65,7 +75,10 @@ impl Watchdog {
             }
         }
 
-        info!("Track transition to: {}", track.title.as_deref().unwrap_or("Unknown"));
+        info!(
+            "Track transition to: {}",
+            track.title.as_deref().unwrap_or("Unknown")
+        );
 
         // Move current to previous and start finalizing it
         if let Some(recording) = self.current_recording.take() {
@@ -85,7 +98,11 @@ impl Watchdog {
         if self.playback_status == "Playing" {
             self.start_new_recording(track).await;
         } else {
-            info!("Spotify is {}, skipping recording start for {}", self.playback_status, track.title.as_deref().unwrap_or("Unknown"));
+            info!(
+                "Spotify is {}, skipping recording start for {}",
+                self.playback_status,
+                track.title.as_deref().unwrap_or("Unknown")
+            );
         }
     }
 
@@ -136,25 +153,64 @@ impl Watchdog {
 
     async fn start_new_recording(&mut self, track: TrackInfo) {
         let temp_dir = std::env::temp_dir();
-        let temp_path = temp_dir.join(format!("spotify_rec_{}.mp3", uuid::Uuid::new_v4()));
-        
-        info!("Starting recording for {} to {:?}", track.title.as_deref().unwrap_or("Unknown"), temp_path);
+        let ext = self.audio_config.format.to_string();
+        let temp_path = temp_dir.join(format!("spotify_rec_{}.{}", uuid::Uuid::new_v4(), ext));
+
+        info!(
+            "Starting recording for {} to {:?}",
+            track.title.as_deref().unwrap_or("Unknown"),
+            temp_path
+        );
 
         let target_node = get_default_sink_monitor().await;
         let mut cmd = Command::new("sh");
-        
+
         let pw_cat_target = if let Some(node) = target_node {
             format!("--target {}", node)
         } else {
             "".to_string()
         };
 
+        let ffmpeg_args = match self.audio_config.format {
+            crate::config::AudioFormat::Mp3 => {
+                let codec = "-codec:a libmp3lame";
+                match self.audio_config.bitrate_mode {
+                    crate::config::BitrateMode::Vbr => {
+                        format!("{} -qscale:a {}", codec, self.audio_config.vbr_quality)
+                    }
+                    crate::config::BitrateMode::Cbr => {
+                        format!("{} -b:a {}k", codec, self.audio_config.bitrate)
+                    }
+                }
+            }
+            crate::config::AudioFormat::Flac => "-codec:a flac".to_string(),
+            crate::config::AudioFormat::Wav => "-codec:a pcm_s16le".to_string(),
+            crate::config::AudioFormat::M4a => {
+                let codec = "-codec:a aac";
+                match self.audio_config.bitrate_mode {
+                    crate::config::BitrateMode::Vbr => {
+                        format!("{} -q:a {}", codec, self.audio_config.vbr_quality)
+                    }
+                    crate::config::BitrateMode::Cbr => {
+                        format!("{} -b:a {}k", codec, self.audio_config.bitrate)
+                    }
+                }
+            }
+        };
+
         let shell_cmd = format!(
-            "pw-cat --record {} --format s16 --rate 48000 --channels 2 - | ffmpeg -y -f s16le -ar 48000 -ac 2 -i pipe:0 -codec:a libmp3lame -qscale:a 2 {:?}",
-            pw_cat_target, temp_path
+            "pw-cat --record {} --format s16 --rate {} --channels {} - | ffmpeg -y -f s16le -ar {} -ac {} -i pipe:0 {} {:?}",
+            pw_cat_target,
+            self.audio_config.sample_rate,
+            self.audio_config.channels,
+            self.audio_config.sample_rate,
+            self.audio_config.channels,
+            ffmpeg_args,
+            temp_path
         );
 
-        cmd.arg("-c").arg(shell_cmd)
+        cmd.arg("-c")
+            .arg(shell_cmd)
             .stdout(Stdio::null())
             .stderr(Stdio::null());
         // Important: start in a new process group so we can kill the whole group (pw-cat + ffmpeg)
@@ -183,6 +239,7 @@ pub async fn monitor_spotify(
     connection: zbus::Connection,
     bus_name: String,
     tx: mpsc::Sender<FinishedRecording>,
+    audio_config: crate::config::AudioConfig,
     mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) {
     let player_proxy = match PlayerProxy::builder(&connection)
@@ -201,7 +258,7 @@ pub async fn monitor_spotify(
     let mut metadata_stream = player_proxy.receive_metadata_changed().await;
     let mut playback_stream = player_proxy.receive_playback_status_changed().await;
 
-    let mut watchdog = Watchdog::new(tx);
+    let mut watchdog = Watchdog::new(tx, audio_config);
 
     // Initial state
     if let Ok(metadata) = player_proxy.metadata().await {
@@ -214,7 +271,9 @@ pub async fn monitor_spotify(
         } else {
             None
         };
-        watchdog.handle_playback_status(&status, current_track).await;
+        watchdog
+            .handle_playback_status(&status, current_track)
+            .await;
     }
 
     loop {
@@ -250,11 +309,17 @@ pub async fn run_service(
     spotify_bus_name: &str,
     music_dir: PathBuf,
     pattern: String,
+    audio_config: crate::config::AudioConfig,
     shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut main_shutdown_rx = shutdown_rx;
     let (tx, rx) = mpsc::channel(100);
-    tokio::spawn(crate::recorder::exporter_task(rx, music_dir, pattern));
+    tokio::spawn(crate::recorder::exporter_task(
+        rx,
+        music_dir,
+        pattern,
+        audio_config.clone(),
+    ));
 
     let dbus_proxy = zbus::fdo::DBusProxy::new(&connection).await?;
     let mut name_owner_changed = dbus_proxy.receive_name_owner_changed().await?;
@@ -269,6 +334,7 @@ pub async fn run_service(
             connection.clone(),
             spotify_bus_name.to_string(),
             tx.clone(),
+            audio_config.clone(),
             main_shutdown_rx.resubscribe(),
         )));
     }
@@ -287,6 +353,7 @@ pub async fn run_service(
                             connection.clone(),
                             spotify_bus_name.to_string(),
                             tx.clone(),
+                            audio_config.clone(),
                             main_shutdown_rx.resubscribe(),
                         )));
                     } else {

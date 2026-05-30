@@ -1,8 +1,8 @@
 mod mock;
 
 use mock::run_mock;
-use taped::watchdog::monitor_spotify;
 use std::collections::HashMap;
+use taped::watchdog::monitor_spotify;
 use tokio::sync::mpsc;
 use zbus::{connection, zvariant::Value};
 
@@ -18,9 +18,7 @@ async fn test_monitor_metadata_processing() -> Result<(), Box<dyn std::error::Er
 
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
-    let connection = connection::Builder::session()?
-        .build()
-        .await?;
+    let connection = connection::Builder::session()?.build().await?;
 
     let (session_tx, _session_rx) = mpsc::channel(10);
 
@@ -30,6 +28,7 @@ async fn test_monitor_metadata_processing() -> Result<(), Box<dyn std::error::Er
         connection.clone(),
         spotify_bus_name.to_string(),
         session_tx,
+        taped::config::AudioConfig::default(),
         shutdown_rx,
     ));
 
@@ -51,7 +50,7 @@ async fn test_monitor_metadata_processing() -> Result<(), Box<dyn std::error::Er
 
     // The first metadata update in monitor_spotify just sets up the watchdog (waiting_for_next_track = true)
     // The second one would start recording if we send another one.
-    
+
     let mut metadata2 = HashMap::new();
     metadata2.insert(
         "mpris:trackid".to_string(),
