@@ -153,7 +153,7 @@ impl Watchdog {
 
     async fn start_new_recording(&mut self, track: TrackInfo) {
         let temp_dir = std::env::temp_dir();
-        let ext = self.audio_config.format.to_string();
+        let ext = self.audio_config.format().to_string();
         let temp_path = temp_dir.join(format!("spotify_rec_{}.{}", uuid::Uuid::new_v4(), ext));
 
         info!(
@@ -171,40 +171,22 @@ impl Watchdog {
             "".to_string()
         };
 
-        let ffmpeg_args = match self.audio_config.format {
-            crate::config::AudioFormat::Mp3 => {
-                let codec = "-codec:a libmp3lame";
-                match self.audio_config.bitrate_mode {
-                    crate::config::BitrateMode::Vbr => {
-                        format!("{} -qscale:a {}", codec, self.audio_config.vbr_quality)
-                    }
-                    crate::config::BitrateMode::Cbr => {
-                        format!("{} -b:a {}k", codec, self.audio_config.bitrate)
-                    }
-                }
+        let ffmpeg_args = match self.audio_config.format() {
+            "flac" => "-c:a flac".to_string(),
+            "opus" => {
+                let bitrate = self.audio_config.bitrate().unwrap_or(128);
+                format!("-c:a libopus -b:a {}k", bitrate)
             }
-            crate::config::AudioFormat::Flac => "-codec:a flac".to_string(),
-            crate::config::AudioFormat::Wav => "-codec:a pcm_s16le".to_string(),
-            crate::config::AudioFormat::M4a => {
-                let codec = "-codec:a aac";
-                match self.audio_config.bitrate_mode {
-                    crate::config::BitrateMode::Vbr => {
-                        format!("{} -q:a {}", codec, self.audio_config.vbr_quality)
-                    }
-                    crate::config::BitrateMode::Cbr => {
-                        format!("{} -b:a {}k", codec, self.audio_config.bitrate)
-                    }
-                }
-            }
+            other => panic!("Unsupported format: {}", other),
         };
 
         let shell_cmd = format!(
             "pw-cat --record {} --format s16 --rate {} --channels {} - | ffmpeg -y -f s16le -ar {} -ac {} -i pipe:0 {} {:?}",
             pw_cat_target,
-            self.audio_config.sample_rate,
-            self.audio_config.channels,
-            self.audio_config.sample_rate,
-            self.audio_config.channels,
+            self.audio_config.sample_rate(),
+            self.audio_config.channels(),
+            self.audio_config.sample_rate(),
+            self.audio_config.channels(),
             ffmpeg_args,
             temp_path
         );

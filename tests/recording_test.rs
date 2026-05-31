@@ -126,7 +126,7 @@ async fn test_recording_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
     // Song 1 should NOT be exported
     let song1_path = music_dir
         .join("Unknown Artist - Unknown Album")
-        .join("00 - Song 1.mp3");
+        .join("00 - Song 1.opus");
     assert!(
         !song1_path.exists(),
         "Song 1 should NOT be exported as it was the first track"
@@ -163,7 +163,7 @@ async fn test_recording_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Song 3 should be exported
     let song3_path = music_dir
         .join("Unknown Artist - Unknown Album")
-        .join("00 - Song 3.mp3");
+        .join("00 - Song 3.opus");
 
     // Wait a bit more for exporter
     for _ in 0..10 {
@@ -308,7 +308,7 @@ async fn test_advertisement_handling() -> Result<(), Box<dyn std::error::Error>>
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
     // Song 1 should NOT be exported
-    let song1_path = music_dir.join("Artist 1 - Album 1").join("00 - Song 1.mp3");
+    let song1_path = music_dir.join("Artist 1 - Album 1").join("00 - Song 1.opus");
     assert!(
         !song1_path.exists(),
         "Song 1 should NOT be exported as it was the first track"
@@ -334,7 +334,7 @@ async fn test_advertisement_handling() -> Result<(), Box<dyn std::error::Error>>
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     // Song 2 should be exported
-    let song2_path = music_dir.join("Artist 2 - Album 2").join("00 - Song 2.mp3");
+    let song2_path = music_dir.join("Artist 2 - Album 2").join("00 - Song 2.opus");
     let mut song2_exists = false;
     for _ in 0..10 {
         if song2_path.exists() {
@@ -350,10 +350,10 @@ async fn test_advertisement_handling() -> Result<(), Box<dyn std::error::Error>>
     );
 
     // The advertisement itself should NOT be exported
-    let ad_path1 = music_dir.join(" - ").join("00 - Ad Title.mp3");
+    let ad_path1 = music_dir.join(" - ").join("00 - Ad Title.opus");
     let ad_path2 = music_dir
         .join("Unknown Artist - Unknown Album")
-        .join("00 - Ad Title.mp3");
+        .join("00 - Ad Title.opus");
     assert!(!ad_path1.exists(), "Ad should not be exported");
     assert!(!ad_path2.exists(), "Ad should not be exported");
 
@@ -402,7 +402,7 @@ async fn test_advertisement_handling() -> Result<(), Box<dyn std::error::Error>>
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     // Song 3 should be exported
-    let song3_path = music_dir.join("Artist 3 - Album 3").join("00 - Song 3.mp3");
+    let song3_path = music_dir.join("Artist 3 - Album 3").join("00 - Song 3.opus");
     let mut song3_exists = false;
     for _ in 0..10 {
         if song3_path.exists() {

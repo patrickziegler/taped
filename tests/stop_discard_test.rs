@@ -108,7 +108,7 @@ async fn test_stop_discard_behavior() -> Result<(), Box<dyn std::error::Error>> 
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     // 4. Check if Song 2 was exported
-    let song2_path = music_dir.join("Song 2.mp3");
+    let song2_path = music_dir.join("Song 2.opus");
     assert!(
         !song2_path.exists(),
         "Song 2 should NOT have been exported after pause"

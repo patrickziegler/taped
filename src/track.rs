@@ -1,4 +1,3 @@
-use id3::TagLike;
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::{error, info};
@@ -81,45 +80,83 @@ pub fn parse_track_info(metadata: &HashMap<String, OwnedValue>) -> TrackInfo {
 }
 
 pub fn apply_tags(path: &Path, track: &TrackInfo) -> anyhow::Result<()> {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    if ext != "mp3" && ext != "wav" {
-        info!(
-            "Skipping ID3 metadata tagging for .{} files (unsupported format)",
-            ext
-        );
-        return Ok(());
-    }
-    let mut tag = id3::Tag::new();
-    tag.set_title(track.title.as_deref().unwrap_or("Unknown Title"));
-    tag.set_artist(track.artist.as_deref().unwrap_or("Unknown Artist"));
-    tag.set_album(track.album.as_deref().unwrap_or("Unknown Album"));
+    use lofty::config::WriteOptions;
+    use lofty::file::{AudioFile, TaggedFileExt};
+    use lofty::picture::{Picture, PictureType};
+    use lofty::probe::Probe;
+    use lofty::tag::{Accessor, ItemKey, Tag};
+    use std::io::Cursor;
+
+    let mut tagged_file = Probe::open(path)
+        .map_err(|e| anyhow::anyhow!("Failed to probe file: {e}"))?
+        .read()
+        .map_err(|e| anyhow::anyhow!("Failed to read tags: {e}"))?;
+
+    let tag = match tagged_file.primary_tag_mut() {
+        Some(tag) => tag,
+        None => {
+            let tag_type = tagged_file.primary_tag_type();
+            tagged_file.insert_tag(Tag::new(tag_type));
+            tagged_file
+                .primary_tag_mut()
+                .ok_or_else(|| anyhow::anyhow!("Failed to create tag"))?
+        }
+    };
+
+    tag.set_title(
+        track
+            .title
+            .clone()
+            .unwrap_or_else(|| "Unknown Title".to_string()),
+    );
+    tag.set_artist(
+        track
+            .artist
+            .clone()
+            .unwrap_or_else(|| "Unknown Artist".to_string()),
+    );
+    tag.set_album(
+        track
+            .album
+            .clone()
+            .unwrap_or_else(|| "Unknown Album".to_string()),
+    );
+
     if let Some(artist) = &track.album_artist {
-        tag.set_album_artist(artist);
+        tag.insert_text(ItemKey::AlbumArtist, artist.to_string());
+    } else if let Some(artist) = &track.artist {
+        tag.insert_text(ItemKey::AlbumArtist, artist.to_string());
     }
+
     if let Some(n) = track.track_number {
         tag.set_track(n as u32);
     }
     if let Some(n) = track.disc_number {
-        tag.set_disc(n as u32);
+        tag.set_disk(n as u32);
     }
 
     if let Some(art_url) = &track.art_url {
         info!("Downloading album art from {}", art_url);
-        if let Ok(response) = reqwest::blocking::get(art_url) {
-            if let Ok(bytes) = response.bytes() {
-                tag.add_frame(id3::frame::Picture {
-                    mime_type: "image/jpeg".to_string(),
-                    picture_type: id3::frame::PictureType::CoverFront,
-                    description: "Album Art".to_string(),
-                    data: bytes.to_vec(),
-                });
+        match reqwest::blocking::get(art_url) {
+            Ok(response) => {
+                if let Ok(bytes) = response.bytes() {
+                    match Picture::from_reader(&mut Cursor::new(bytes)) {
+                        Ok(mut picture) => {
+                            picture.set_pic_type(PictureType::CoverFront);
+                            tag.push_picture(picture);
+                        }
+                        Err(e) => error!("Failed to parse downloaded album art: {e}"),
+                    }
+                }
             }
-        } else {
-            error!("Failed to download album art");
+            Err(e) => error!("Failed to download album art: {e}"),
         }
     }
 
-    tag.write_to_path(path, id3::Version::Id3v24)?;
+    tagged_file
+        .save_to_path(path, WriteOptions::default())
+        .map_err(|e| anyhow::anyhow!("Failed to save tags: {e}"))?;
+
     Ok(())
 }
 

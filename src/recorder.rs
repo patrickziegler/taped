@@ -174,7 +174,7 @@ pub async fn exporter_task(
         let relative_path = format_path(&pattern, &track);
         let dest_path = music_dir
             .join(relative_path)
-            .with_extension(audio_config.format.to_string());
+            .with_extension(audio_config.format().to_string());
 
         if let Some(parent) = dest_path.parent() {
             let _ = tokio::fs::create_dir_all(parent).await;
@@ -182,8 +182,14 @@ pub async fn exporter_task(
 
         let track_clone = track.clone();
         let temp_path_clone = temp_path.clone();
-        let _ =
+        let tagging_result =
             tokio::task::spawn_blocking(move || apply_tags(&temp_path_clone, &track_clone)).await;
+
+        match tagging_result {
+            Ok(Err(e)) => error!("Failed to apply tags to {:?}: {}", temp_path, e),
+            Err(e) => error!("Tagging task panicked: {}", e),
+            _ => {}
+        }
 
         if let Err(e) = move_file(&temp_path, &dest_path).await {
             error!("Failed to move file to {:?}: {}", dest_path, e);

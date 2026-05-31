@@ -2,77 +2,84 @@ use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum AudioFormat {
-    Mp3,
-    Flac,
-    Wav,
-    M4a,
+#[serde(rename_all = "kebab-case")]
+pub enum QualityProfile {
+    Low,
+    Normal,
+    High,
+    #[serde(rename = "very-high")]
+    VeryHigh,
+    Lossless,
 }
 
-impl std::fmt::Display for AudioFormat {
+impl std::fmt::Display for QualityProfile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AudioFormat::Mp3 => write!(f, "mp3"),
-            AudioFormat::Flac => write!(f, "flac"),
-            AudioFormat::Wav => write!(f, "wav"),
-            AudioFormat::M4a => write!(f, "m4a"),
+            QualityProfile::Low => write!(f, "low"),
+            QualityProfile::Normal => write!(f, "normal"),
+            QualityProfile::High => write!(f, "high"),
+            QualityProfile::VeryHigh => write!(f, "very-high"),
+            QualityProfile::Lossless => write!(f, "lossless"),
         }
     }
 }
 
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum BitrateMode {
-    Cbr,
-    Vbr,
-}
-
-impl std::fmt::Display for BitrateMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl QualityProfile {
+    pub fn format(&self) -> &'static str {
         match self {
-            BitrateMode::Cbr => write!(f, "cbr"),
-            BitrateMode::Vbr => write!(f, "vbr"),
+            QualityProfile::Lossless => "flac",
+            _ => "opus",
         }
+    }
+
+    pub fn bitrate(&self) -> Option<u32> {
+        match self {
+            QualityProfile::Low => Some(24),
+            QualityProfile::Normal => Some(64),
+            QualityProfile::High => Some(96),
+            QualityProfile::VeryHigh => Some(128),
+            QualityProfile::Lossless => None,
+        }
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        44100
+    }
+
+    pub fn channels(&self) -> u32 {
+        2
     }
 }
 
-#[derive(Args, Clone, Debug, Serialize, Deserialize)]
+#[derive(Args, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AudioConfig {
-    /// Audio quality format (mp3, flac, wav, m4a)
-    #[arg(long, value_enum, default_value_t = AudioFormat::Mp3)]
-    pub format: AudioFormat,
+    /// Audio quality level matching Spotify levels (low, normal, high, very-high, lossless)
+    #[arg(short, long, value_enum, default_value_t = QualityProfile::VeryHigh)]
+    pub quality: QualityProfile,
+}
 
-    /// Bitrate mode for lossy compression formats (cbr, vbr)
-    #[arg(long, value_enum, default_value_t = BitrateMode::Vbr)]
-    pub bitrate_mode: BitrateMode,
+impl AudioConfig {
+    pub fn format(&self) -> &'static str {
+        self.quality.format()
+    }
 
-    /// VBR quality level (0-9, 0 is best) for MP3/AAC VBR mode
-    #[arg(long, default_value_t = 2)]
-    pub vbr_quality: u32,
+    pub fn bitrate(&self) -> Option<u32> {
+        self.quality.bitrate()
+    }
 
-    /// CBR Bitrate in kbps (e.g. 128, 192, 256, 320)
-    #[arg(long, default_value_t = 320)]
-    pub bitrate: u32,
+    pub fn sample_rate(&self) -> u32 {
+        self.quality.sample_rate()
+    }
 
-    /// Audio sample rate in Hz (e.g. 44100, 48000)
-    #[arg(long, default_value_t = 48000)]
-    pub sample_rate: u32,
-
-    /// Number of audio channels (1 for mono, 2 for stereo)
-    #[arg(long, default_value_t = 2)]
-    pub channels: u32,
+    pub fn channels(&self) -> u32 {
+        self.quality.channels()
+    }
 }
 
 impl Default for AudioConfig {
     fn default() -> Self {
         Self {
-            format: AudioFormat::Mp3,
-            bitrate_mode: BitrateMode::Vbr,
-            vbr_quality: 2,
-            bitrate: 320,
-            sample_rate: 48000,
-            channels: 2,
+            quality: QualityProfile::VeryHigh,
         }
     }
 }
@@ -86,11 +93,11 @@ mod tests {
         let config = AudioConfig::default();
         let serialized = serde_json::to_string(&config).unwrap();
         let deserialized: AudioConfig = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(config.format, deserialized.format);
-        assert_eq!(config.bitrate_mode, deserialized.bitrate_mode);
-        assert_eq!(config.vbr_quality, deserialized.vbr_quality);
-        assert_eq!(config.bitrate, deserialized.bitrate);
-        assert_eq!(config.sample_rate, deserialized.sample_rate);
-        assert_eq!(config.channels, deserialized.channels);
+        assert_eq!(config, deserialized);
+        assert_eq!(config.quality, deserialized.quality);
+        assert_eq!(config.format(), deserialized.format());
+        assert_eq!(config.bitrate(), deserialized.bitrate());
+        assert_eq!(config.sample_rate(), deserialized.sample_rate());
+        assert_eq!(config.channels(), deserialized.channels());
     }
 }
