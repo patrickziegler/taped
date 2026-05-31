@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     pipewire-bin \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rustup component add rustfmt
+RUN cargo install cargo-llvm-cov \
+    && rustup component add rustfmt llvm-tools-preview
 
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 

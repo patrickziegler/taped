@@ -10,14 +10,7 @@
 ## Development
 
 ```sh
-podman run -it \
-    -v /run/user/$(id -u):/tmp/runtime \
-    -v ~/.gemini:/home/root/.gemini \
-    -v $(pwd):/workspace \
-    -e XDG_RUNTIME_DIR=/tmp/runtime \
-    -e TERM=xterm-256color \
-    -e COLORTERM=truecolor \
-    taped-dev bash
+podman compose run --rm dev
 ```
 
 ## License
